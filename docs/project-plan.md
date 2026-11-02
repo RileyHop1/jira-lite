@@ -201,7 +201,7 @@ Record 2–5 minutes, clear enough for someone who isn't an AWS expert:
 4. **One real failure** from the troubleshooting log, and how you found the cause.
 5. **What you'd change before real customers:** HTTPS, login and permissions, a load balancer with multiple instances, automated deployment, monitoring, DynamoDB backups, infrastructure as code, and any stretch goal you didn't finish.
 
-Reply to the recruiter's email with the live link, the repository link (README and diagram included), the video link, and the one-line confirmation, only if both statements are accurate. Open every link in a private browser window before sending.
+Reply to the recruiter's email with the live link, the repository link (README and diagram included), the video link, and the one-line confirmation, only if it is accurate. Open every link in a private browser window before sending.
 
 Keep the app running until the reviewers say the review is finished.
 

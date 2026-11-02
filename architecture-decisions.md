@@ -462,13 +462,11 @@ Items 1–3 were reported done in the owner's audit of 2026-11-01 (the audit say
 
 ## ADR-020 — Publish a public repository and keep employer documents local
 
-**Status:** Accepted on 2026-11-01 (owner), with a staged rollout: **private first, public before the first deploy**. Not yet created.
+**Status:** Accepted on 2026-11-01 (owner). Implemented: the public repository `RileyHop1/jira-lite` exists.
 
-**Decision:** Publish the code, SRS, ADRs, and README in a GitHub repository (planned as `Rileyhop1/jira-lite`). Create it **private**. The owner makes it **public before the first deploy to EC2**, because the instance clones it without a stored credential. The employer PDFs, the recruiter email, and the transcriptions stay in the gitignored `docs/reference/` folder.
+**Decision:** Publish the code, SRS, ADRs, and README in a public GitHub repository, so the EC2 instance can clone it without a stored credential. The employer PDFs, the recruiter email, and the transcriptions stay in the gitignored `docs/reference/` folder.
 
-**Branch protection:** GitHub offers it on private repositories only on paid plans, so it can't be enabled while the repo is private. Until the flip, the "PR only, squash merge, nobody pushes to `main`" rule is kept by discipline (AGENTS.md §5). It gets turned on right after the repo goes public, if the settings page allows it for the owner's plan.
-
-**Why staged:** The owner prefers to keep work unpublished until there is something running. Private history becomes public when the repo is flipped, so before flipping we re-run the secrets and personal-details scan across the full history (`git log -p --all`), and the commit email must already be the noreply address.
+**How it was set up:** Work began in a private repository. Before publishing, the documents were cleaned of details that did not belong in a public record, and the project was imported into a fresh public repository as a single initial commit. The private repository is kept as an archive. `main` is protected: a pull request is required, with no bypass.
 
 **Rationale:** Reviewers can open a public link with no invitation, and EC2 can fetch code without a stored credential. Reviewers don't need their own documents back, and the email includes a recruiter's contact details.
 
@@ -511,7 +509,7 @@ These remain open; the steps and discussion schedule are in `docs/project-plan.m
 | 2026-10-30 | Plain static frontend from Nginx with a small JSON API | Proposed; not yet discussed |
 | 2026-10-30 | `/health` performs a real DynamoDB read with short timeouts | Proposed; not yet discussed |
 | 2026-10-30 | Local development in WSL Ubuntu with DynamoDB Local | Proposed; not yet discussed |
-| 2026-10-30 | Public GitHub repository; employer documents kept local | Proposed; not yet discussed |
+| 2026-11-01 | Public GitHub repository, imported as a fresh single commit; employer documents kept local; `main` protected | Accepted; implemented |
 
 ## Assignment alignment
 
