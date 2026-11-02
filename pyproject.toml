@@ -1,0 +1,21 @@
+# Settings for the two laptop-only tools. Neither runs on the server.
+
+[tool.pytest.ini_options]
+# Where pytest looks for tests, so `pytest` works from the repository root.
+testpaths = ["tests"]
+# Put the repository root on the import path so tests can `import jira_lite`
+# without installing the project as a package.
+pythonpath = ["."]
+
+[tool.ruff.lint]
+# E/F: style and real errors. I: import order. D: missing or malformed
+# docstrings, which enforces the "every module and function has a docstring"
+# rule in AGENTS.md section 4.
+select = ["E", "F", "I", "D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+# Test functions are named for what they check, so they don't need docstrings.
+"tests/*" = ["D103"]

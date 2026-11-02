@@ -1,0 +1,50 @@
+# systemd unit for Jira Lite. deploy.sh installs it as
+# /etc/systemd/system/jira-lite.service.
+#
+# systemd starts Gunicorn at boot and restarts it after a crash (ADR-016).
+
+[Unit]
+# Start after the network is up; the app needs it to reach DynamoDB.
+Description=Jira Lite (Flask app served by Gunicorn)
+After=network.target
+
+[Service]
+# Gunicorn reports readiness to systemd, so "started" means it is serving.
+Type=notify
+NotifyAccess=main
+
+# Run as an unprivileged account with no login. The code is owned by root, so
+# a compromised app could not change its own files or use sudo.
+User=jira-lite
+Group=jira-lite
+WorkingDirectory=/opt/jira-lite/app
+
+# Settings the app reads (not secrets). AWS credentials are not set here: the
+# instance role supplies them.
+Environment=AWS_DEFAULT_REGION=us-east-2
+Environment=JIRA_LITE_TABLE=jira-lite-tasks
+
+# Bind to loopback so Gunicorn is unreachable from the network even if the
+# security group were misconfigured. No --preload: each worker must build its
+# own DynamoDB handle (see jira_lite/db.py).
+ExecStart=/opt/jira-lite/venv/bin/gunicorn --workers 2 --bind 127.0.0.1:8000 jira_lite.app:app
+
+# `systemctl reload` asks Gunicorn to restart its workers gracefully.
+ExecReload=/bin/kill -s HUP $MAINPID
+
+# Restart after a crash, but not after a deliberate stop, and wait 5 seconds so
+# a crash loop doesn't spin the CPU.
+Restart=on-failure
+RestartSec=5
+
+# Stop the whole process group, and give it only 5 seconds so deploys are quick.
+KillMode=mixed
+TimeoutStopSec=5
+
+# Hardening: private /tmp, and a filesystem that is read-only to the app.
+PrivateTmp=true
+ProtectSystem=strict
+
+[Install]
+# Start at boot.
+WantedBy=multi-user.target

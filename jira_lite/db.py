@@ -1,0 +1,79 @@
+"""All DynamoDB access for Jira Lite lives here.
+
+Routes never touch boto3 directly. They call functions in this module, which
+turn every AWS failure into one ``DatabaseError``. That keeps the routes small
+and gives the tests one simple thing to replace.
+"""
+
+import os
+
+import boto3
+from botocore.config import Config
+from botocore.exceptions import BotoCoreError, ClientError
+
+TABLE_ENV_VAR = "JIRA_LITE_TABLE"
+# Set only for DynamoDB Local on a laptop; unset on EC2.
+ENDPOINT_ENV_VAR = "JIRA_LITE_DYNAMODB_ENDPOINT"
+DEFAULT_TABLE_NAME = "jira-lite-tasks"
+
+# Item id that /health looks up. It is not a UUID, so it never matches a real
+# task, and a missing item is a normal empty result rather than an error.
+HEALTH_CHECK_KEY = "__health_check__"
+
+# boto3's defaults (60-second timeouts, retries) outlast a Gunicorn worker, so
+# a database problem would surface as a generic Nginx error instead of a 503.
+# Connect and read are separate limits, not one total deadline.
+BOTO_CONFIG = Config(
+    connect_timeout=2,
+    read_timeout=2,
+    retries={"total_max_attempts": 1},
+)
+
+# Created on first use so each Gunicorn worker builds its own. Do not run
+# Gunicorn with ``--preload``: it would create this before the workers fork.
+_table = None
+
+
+class DatabaseError(Exception):
+    """Raised when DynamoDB cannot be reached or refuses a request.
+
+    The message is for the log only. Routes must never put it in a response.
+    """
+
+
+def get_table():
+    """Return this process's DynamoDB table handle, creating it on first use.
+
+    Returns:
+        The boto3 ``Table`` for the configured table name.
+
+    Raises:
+        botocore.exceptions.BotoCoreError: If boto3 cannot be configured, for
+            example when no Region is set. Callers that need a
+            ``DatabaseError`` should call this inside their own error handling.
+    """
+    global _table
+    if _table is None:
+        resource = boto3.resource(
+            "dynamodb",
+            endpoint_url=os.environ.get(ENDPOINT_ENV_VAR),
+            config=BOTO_CONFIG,
+        )
+        _table = resource.Table(os.environ.get(TABLE_ENV_VAR, DEFAULT_TABLE_NAME))
+    return _table
+
+
+def check_connection():
+    """Prove the app can read its DynamoDB table.
+
+    Looks up a key that does not exist. This proves connectivity and read
+    permission only; it deliberately does not write, so it never changes data.
+
+    Raises:
+        DatabaseError: On any AWS failure, such as a denied permission, a
+            missing table, no Region, no credentials, or a timeout.
+    """
+    try:
+        get_table().get_item(Key={"id": HEALTH_CHECK_KEY})
+    except (BotoCoreError, ClientError) as error:
+        raise DatabaseError(f"DynamoDB health check failed: {error}") from error

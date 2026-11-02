@@ -1,0 +1,22 @@
+# Employer documents and the recruiter email stay local (see AGENTS.md)
+docs/reference/
+
+# Working checklist and tentative agent plans stay local (see AGENTS.md)
+to-do-list.md
+
+# Owner's private working notes stay local
+private-notes.md
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
