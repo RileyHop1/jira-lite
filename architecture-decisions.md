@@ -419,7 +419,7 @@ Items 1–3 were reported done in the owner's audit of 2026-11-01 (the audit say
 
 ## ADR-017 — Serve a plain frontend from Nginx with a small JSON API
 
-**Status:** Accepted on 2026-11-01 as a plain static page from Nginx plus a small JSON API. The SRS length limits are still to be discussed before the task features (Phase 5). Not yet implemented.
+**Status:** Accepted on 2026-11-01 as a plain static page from Nginx plus a small JSON API. Accepted on 2026-11-02: the API is `GET` and `POST /api/tasks`, then `PUT` and `DELETE /api/tasks/<id>`; titles are limited to 200 characters and descriptions to 2,000; the server validates even though the page will too; the page shows task text with `textContent` only. Create and list are implemented and tested against DynamoDB Local (PR 3). Edit, delete, and the page are not yet implemented, and nothing from this ADR is deployed yet beyond `/health`.
 
 **Decision:** The board is one static page of plain **HTML, CSS, and JavaScript**, with no framework or build step, served by Nginx. JavaScript calls a small Flask JSON API: `GET` and `POST /api/tasks`, and `PUT` and `DELETE /api/tasks/<id>`. Nginx proxies `/api/` and `/health` to Gunicorn. Flask enforces the SRS length limits (title 200 characters, description 2,000), and the page renders task text with `textContent`, never `innerHTML`.
 
