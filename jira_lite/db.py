@@ -6,6 +6,9 @@ and gives the tests one simple thing to replace.
 """
 
 import os
+import uuid
+from contextlib import contextmanager
+from datetime import datetime, timezone
 
 import boto3
 from botocore.config import Config
@@ -63,6 +66,24 @@ def get_table():
     return _table
 
 
+@contextmanager
+def _translate_errors(action):
+    """Turn any boto3 failure inside the block into a ``DatabaseError``.
+
+    Args:
+        action: Short description of the operation, used in the message.
+
+    Raises:
+        DatabaseError: On any ``BotoCoreError`` or ``ClientError``, such as a
+            denied permission, a missing table, no Region, no credentials, or
+            a timeout.
+    """
+    try:
+        yield
+    except (BotoCoreError, ClientError) as error:
+        raise DatabaseError(f"DynamoDB {action} failed: {error}") from error
+
+
 def check_connection():
     """Prove the app can read its DynamoDB table.
 
@@ -70,10 +91,53 @@ def check_connection():
     permission only; it deliberately does not write, so it never changes data.
 
     Raises:
-        DatabaseError: On any AWS failure, such as a denied permission, a
-            missing table, no Region, no credentials, or a timeout.
+        DatabaseError: If DynamoDB cannot be reached or refuses the read.
     """
-    try:
+    with _translate_errors("health check"):
         get_table().get_item(Key={"id": HEALTH_CHECK_KEY})
-    except (BotoCoreError, ClientError) as error:
-        raise DatabaseError(f"DynamoDB health check failed: {error}") from error
+
+
+def create_task(fields):
+    """Store a new task and return it.
+
+    Args:
+        fields: Validated ``title``, ``description`` and ``status`` values.
+
+    Returns:
+        The saved task: the fields plus a random ``id`` and a UTC
+        ``created_at`` in a fixed format, so sorting the text sorts by time.
+
+    Raises:
+        DatabaseError: If DynamoDB cannot be reached or refuses the write.
+    """
+    task = {
+        "id": str(uuid.uuid4()),
+        "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+        **fields,
+    }
+    with _translate_errors("create task"):
+        get_table().put_item(Item=task)
+    return task
+
+
+def list_tasks():
+    """Return every task, oldest first.
+
+    A scan returns at most 1 MB per call, so this keeps reading until
+    DynamoDB reports no more pages. Reads are consistent, so a task created a
+    moment ago is included. DynamoDB promises no order, so the result is
+    sorted here.
+
+    Raises:
+        DatabaseError: If DynamoDB cannot be reached or refuses the read.
+    """
+    tasks = []
+    kwargs = {"ConsistentRead": True}
+    with _translate_errors("list tasks"):
+        while True:
+            page = get_table().scan(**kwargs)
+            tasks.extend(page["Items"])
+            if "LastEvaluatedKey" not in page:
+                break
+            kwargs["ExclusiveStartKey"] = page["LastEvaluatedKey"]
+    return sorted(tasks, key=lambda task: task["created_at"])
