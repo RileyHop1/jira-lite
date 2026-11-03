@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jira Lite</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Jira Lite</h1>
+  </header>
+
+  <main>
+    <!-- One form for both adding and editing. Editing a card loads it here. -->
+    <form id="task-form">
+      <label for="title">Title</label>
+      <input id="title" name="title" type="text" maxlength="200" required>
+
+      <label for="description">Description</label>
+      <textarea id="description" name="description" rows="3" maxlength="2000"></textarea>
+
+      <label for="status">Status</label>
+      <select id="status" name="status">
+        <option>To Do</option>
+        <option>In Progress</option>
+        <option>Done</option>
+      </select>
+
+      <div class="form-actions">
+        <button id="submit" type="submit">Add task</button>
+        <button id="cancel" type="button" hidden>Cancel</button>
+      </div>
+    </form>
+
+    <!-- Errors from the server or the network appear here. -->
+    <p id="message" role="alert" hidden></p>
+
+    <section id="board">
+      <section class="column" data-status="To Do">
+        <h2>To Do <span class="count"></span></h2>
+        <ul class="cards"></ul>
+      </section>
+      <section class="column" data-status="In Progress">
+        <h2>In Progress <span class="count"></span></h2>
+        <ul class="cards"></ul>
+      </section>
+      <section class="column" data-status="Done">
+        <h2>Done <span class="count"></span></h2>
+        <ul class="cards"></ul>
+      </section>
+    </section>
+  </main>
+
+  <script src="board.js"></script>
+</body>
+</html>
