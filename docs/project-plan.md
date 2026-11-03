@@ -120,7 +120,7 @@ First, PRs 1 and 2 get written and you review them. PR 1 also adds the exact tes
 
 3. **IAM role:** `jira-lite-ec2`, trusted by EC2, with `AmazonSSMManagedInstanceCore` and `jira-lite-dynamodb` attached.
 4. **Security group:** `jira-lite-web` in the default VPC, with one inbound rule: HTTP (port 80) from `0.0.0.0/0`. Leave outbound as it is.
-5. **EC2 instance:** `jira-lite`, Ubuntu Server 24.04 LTS (x86-64), `t3.micro`, no key pair, a default public subnet with a public IP, security group `jira-lite-web`, and 16 GiB of `gp3` storage. Under Advanced details, set the IAM instance profile to `jira-lite-ec2` and the credit specification to **Standard** (T3 defaults to Unlimited).
+5. **EC2 instance:** `jira-lite`, Ubuntu Server LTS (x86-64; the instance as built runs 26.04.1, see ADR-006), `t3.micro`, no key pair, a default public subnet with a public IP, security group `jira-lite-web`, and 16 GiB of `gp3` storage. Under Advanced details, set the IAM instance profile to `jira-lite-ec2` and the credit specification to **Standard** (T3 defaults to Unlimited).
 6. **Connect:** in the EC2 console, select the instance, then Connect, then Session Manager. It can take a few minutes to become available. Once connected, confirm the agent with `sudo snap services amazon-ssm-agent`.
 7. **Install and deploy:** the repository must be public first (ADR-020), because the instance clones it without a stored credential. In the Session Manager shell:
 
