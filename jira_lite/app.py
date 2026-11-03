@@ -21,6 +21,12 @@ def handle_validation_error(error):
     return jsonify(error=str(error)), 400
 
 
+@app.errorhandler(db.TaskNotFound)
+def handle_task_not_found(error):
+    """Return 404 when an edit targets a task that no longer exists."""
+    return jsonify(error="Task not found. It may have been deleted."), 404
+
+
 @app.errorhandler(db.DatabaseError)
 def handle_database_error(error):
     """Return 503 with a generic message. The real error goes to the log only."""
@@ -60,3 +66,30 @@ def create_task():
 def list_tasks():
     """Return every task as a JSON list, oldest first."""
     return jsonify(db.list_tasks())
+
+
+@app.put("/api/tasks/<uuid:task_id>")
+def update_task(task_id):
+    """Replace a task's title, description and status from the JSON body.
+
+    The body is checked by the same rules as create, so an omitted status
+    becomes "To Do" and an omitted description becomes empty. A malformed id
+    never reaches this function: Flask's ``uuid`` converter returns 404.
+
+    Returns:
+        200 with the updated task, 400 if the body breaks a task rule, or 404
+        if the task does not exist (both handled by the error handlers).
+    """
+    clean = validate_task(request.get_json(silent=True))
+    return jsonify(db.update_task(str(task_id), clean))
+
+
+@app.delete("/api/tasks/<uuid:task_id>")
+def delete_task(task_id):
+    """Delete a task.
+
+    Returns:
+        204 with no body, also when the task was already gone.
+    """
+    db.delete_task(str(task_id))
+    return "", 204
