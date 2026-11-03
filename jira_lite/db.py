@@ -44,6 +44,10 @@ class DatabaseError(Exception):
     """
 
 
+class TaskNotFound(Exception):
+    """Raised when an edit targets a task that does not exist (any more)."""
+
+
 def get_table():
     """Return this process's DynamoDB table handle, creating it on first use.
 
@@ -118,6 +122,71 @@ def create_task(fields):
     with _translate_errors("create task"):
         get_table().put_item(Item=task)
     return task
+
+
+def update_task(task_id, fields):
+    """Replace a task's title, description and status, and return the task.
+
+    Args:
+        task_id: The task's id.
+        fields: Validated ``title``, ``description`` and ``status`` values.
+
+    Returns:
+        The task as stored after the update, including ``id`` and
+        ``created_at``.
+
+    Raises:
+        TaskNotFound: If no task has this id. Without the condition below,
+            DynamoDB would create a half-empty item with no ``created_at``,
+            for example when someone edits a task another visitor just
+            deleted, and that would break sorting for the whole board.
+        DatabaseError: If DynamoDB cannot be reached or refuses the write.
+    """
+    with _translate_errors("update task"):
+        try:
+            response = get_table().update_item(
+                Key={"id": task_id},
+                # Every name goes through a placeholder: "status" is a DynamoDB
+                # reserved word, and this keeps the others from depending on
+                # that list.
+                UpdateExpression=(
+                    "SET #title = :title, #description = :description, "
+                    "#status = :status"
+                ),
+                ExpressionAttributeNames={
+                    "#title": "title",
+                    "#description": "description",
+                    "#status": "status",
+                },
+                ExpressionAttributeValues={
+                    ":title": fields["title"],
+                    ":description": fields["description"],
+                    ":status": fields["status"],
+                },
+                ConditionExpression="attribute_exists(id)",
+                ReturnValues="ALL_NEW",
+            )
+        except ClientError as error:
+            if error.response["Error"]["Code"] == "ConditionalCheckFailedException":
+                raise TaskNotFound(task_id) from error
+            raise
+    return response["Attributes"]
+
+
+def delete_task(task_id):
+    """Delete a task. Deleting one that is already gone is not an error.
+
+    DynamoDB's delete does nothing for a missing item, which is the state the
+    visitor asked for, so there is no not-found case to handle.
+
+    Args:
+        task_id: The task's id.
+
+    Raises:
+        DatabaseError: If DynamoDB cannot be reached or refuses the delete.
+    """
+    with _translate_errors("delete task"):
+        get_table().delete_item(Key={"id": task_id})
 
 
 def list_tasks():
