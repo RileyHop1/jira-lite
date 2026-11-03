@@ -16,16 +16,16 @@ Record *why* we chose each major component, the alternatives considered, and the
 - **Python application server:** Gunicorn, running on the same EC2 instance and receiving proxied application requests.
 - **Backend framework:** Flask, running within Gunicorn-managed Python worker processes.
 - **Database:** Amazon DynamoDB, a managed AWS service separate from EC2 (selected; see ADR-004).
-- **AWS account and Region:** A dedicated Jira Lite AWS project on the Free plan, signed in through an MFA-protected AWS Builder ID, deployed in `us-east-2` (accepted and configured 2026-11-01; deployment capabilities still to be verified; ADR-014).
-- **EC2 instance:** `t3.micro` (2 vCPUs, 1 GiB RAM) with Standard CPU credits (selected; not yet deployed). Actual charges on the new account still need checking (ADR-005).
-- **Operating system:** Ubuntu Server 24.04 LTS (selected; not yet deployed).
-- **Root disk:** 16 GiB Amazon EBS `gp3` general-purpose SSD (selected; not yet provisioned).
-- **VPC:** Use the AWS **default VPC** for the deployment region (selected, conditional on one being present). Plan to place the EC2 host in a default public subnet; confirm internet routing and public IPv4 allocation during setup. The dedicated security-group design is selected; public IPv4 assignment and routing still need deployment verification.
+- **AWS account and Region:** A dedicated Jira Lite AWS project on the Free plan, signed in through an MFA-protected AWS Builder ID, deployed in `us-east-2` (accepted and configured 2026-11-01; custom EC2 role, Session Manager, and DynamoDB access confirmed by the first deploy on 2026-11-02; ADR-014).
+- **EC2 instance:** `t3.micro` (2 vCPUs, 1 GiB RAM) with Standard CPU credits, running as `jira-lite-server` (deployed 2026-11-02). Actual charges on the new account still need checking (ADR-005).
+- **Operating system:** Ubuntu Server 26.04.1 LTS with Python 3.14.4 (deployed 2026-11-02; ADR-006).
+- **Root disk:** 16 GiB Amazon EBS `gp3` general-purpose SSD (provisioned; owner-reported).
+- **VPC:** The AWS **default VPC**, with the EC2 host in a default public subnet. Internet routing and public IPv4 access are verified: `/health` answered from the public internet on 2026-11-02. The dedicated security group allows inbound port 80 only.
 - **Security group (design):** Dedicated group; inbound TCP 80 from the internet for Nginx; no inbound SSH/22 or Gunicorn/8000; outbound initially permitted; TCP 443 for inbound HTTPS only if the stretch goal is implemented.
 - **Public URL:** An Elastic IP with no domain (proposed; not yet discussed; ADR-015).
 - **Transport security:** Start with HTTP for the baseline; HTTPS/TLS is an SRS stretch goal, not a committed launch requirement.
 - **Scope priority:** Deliver and test mandatory EC2 app, persistence, and `/health` plus required submission materials before stretch goals. CI, basic monitoring, rate limiting, automated deployment, and HTTPS are stretch goals, in that order (ADR-013).
-- **Process management and deployment:** systemd runs Gunicorn, and the developer deploys with a short script through Session Manager (proposed; not yet discussed; ADR-016).
+- **Process management and deployment:** systemd runs Gunicorn, and the developer deploys with a short script through Session Manager (accepted and in use since the first deploy on 2026-11-02; ADR-016).
 - **Deployment automation (stretch goal):** **GitHub Actions** is the selected design if time remains. Planned flow: push to `main` → run tests → use GitHub OIDC to assume a narrowly scoped AWS deployment IAM role → invoke AWS Systems Manager Run Command on the EC2 instance → deploy/restart Gunicorn → verify `/health`. Specific deployment packaging, IAM policy scopes, and workflow triggers require implementation and testing.
 - **Server administration:** AWS Systems Manager **Session Manager** (selected). No inbound SSH/port 22 rule; access will be authorized through IAM rather than SSH keys.
 - **IAM:** Use an EC2 instance profile/IAM role with permissions for SSM Agent, plus separately scoped DynamoDB application permissions (selected approach; policies listed in `docs/project-plan.md`; not yet created). The human operator needs their own identity permissions to start sessions. No hard-coded AWS access keys.
@@ -102,21 +102,23 @@ Record *why* we chose each major component, the alternatives considered, and the
 
 **Sources:** [AWS T3 instance specifications](https://aws.amazon.com/ec2/instance-types/t3/) · [AWS burstable credit concepts](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-credits-baseline-concepts.html) · [Free Tier usage for Amazon EC2](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-free-tier-usage.html) · [T3 launch credit settings](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances-how-to.html).
 
-## ADR-006 — Use Ubuntu Server 24.04 LTS on EC2
+## ADR-006 — Use Ubuntu Server LTS on EC2
 
-**Status:** Selected; not yet deployed.
+**Status:** Accepted and deployed. The plan named 24.04; the instance was launched on **26.04.1 LTS** and the owner chose to keep it (2026-11-02).
 
-**Decision:** Run the application host on **Ubuntu Server 24.04 LTS**.
+**Decision:** Run the application host on **Ubuntu Server LTS**. The instance runs **26.04.1 LTS** ("Resolute Raccoon") with Python 3.14.4, nginx 1.28, and git 2.53. The first deploy installed the pinned requirements and `/health` returned 200 publicly. Relaunching on 24.04 would have cost about 30 minutes and gained only a match with the local Python version.
 
 **Rationale:** The developer has daily-driven Ubuntu and has practical experience administering Debian-based Linux distributions. Familiarity with APT, system administration, and troubleshooting reduces initial setup time, the learning curve, and the likelihood of avoidable configuration mistakes. Ubuntu is well documented, has an LTS maintenance lifecycle, and fully supports the planned Nginx → Gunicorn → Flask stack. This is a **lower operational risk and shorter ramp-up time for this project**, not a claim that Ubuntu inherently provides better server uptime or availability.
 
 **Alternative considered:** **Amazon Linux 2023**, an AWS-maintained distribution designed for AWS workloads. It uses DNF rather than APT and offers EC2-oriented defaults, package-versioning/reproducibility features, and AWS support and integration. It was not selected because the application has no Amazon-Linux-specific requirement, while learning unfamiliar administration conventions would add work without a demonstrated benefit for this assignment.
 
+**Version mismatch (known limitation):** Local development and the tests run on Python 3.12 (Ubuntu 24.04 in WSL), while the server runs Python 3.14. The test suite has not been run on 3.14. The app is small and pure Python apart from a few dependencies, and it works on the instance, but a 3.14-only difference would not be caught before deployment.
+
 **Tradeoffs:** Ubuntu does not have some Amazon Linux-specific tooling and packaging conventions, but works with standard AWS IAM roles, monitoring integrations, and EC2 infrastructure. Prior familiarity is a valid operational advantage for a small, time-limited assignment; it does not replace ongoing updates, service supervision, monitoring, or security configuration.
 
-**Interview-ready rationale:** “I chose Ubuntu Server 24.04 LTS because I've used Ubuntu regularly and have experience with Debian-based distributions. Both Ubuntu and Amazon Linux can run the stack, but using a familiar OS reduces setup time and makes troubleshooting more predictable. Amazon Linux is a reasonable alternative for deeper AWS-specific operational alignment; our application doesn't require its particular features.”
+**Interview-ready rationale:** “I chose an Ubuntu Server LTS release because I've used Ubuntu regularly and have experience with Debian-based distributions. Both Ubuntu and Amazon Linux can run the stack, but using a familiar OS reduces setup time and makes troubleshooting more predictable. Amazon Linux is a reasonable alternative for deeper AWS-specific operational alignment; our application doesn't require its particular features.”
 
-**Sources:** [Ubuntu 24.04 LTS release notes](https://documentation.ubuntu.com/release-notes/24.04/) · [Amazon Linux 2023 user guide](https://docs.aws.amazon.com/linux/al2023/ug/what-is-amazon-linux.html).
+**Sources:** [Ubuntu release notes](https://documentation.ubuntu.com/release-notes/) · [Amazon Linux 2023 user guide](https://docs.aws.amazon.com/linux/al2023/ug/what-is-amazon-linux.html).
 
 ## ADR-007 — Use 16 GiB of EBS gp3 root storage
 
@@ -175,7 +177,7 @@ The architecture also keeps administrative access separate from public applicati
 **Implementation requirements / security boundaries:**
 
 - **Region and account:** All infrastructure is located within the dedicated Jira Lite AWS project in `us-east-2` (Ohio), as established in ADR-014.
-- **SSM Agent:** Use an Ubuntu Server 24.04 LTS AMI with SSM Agent preinstalled. Verify its status using `sudo snap services amazon-ssm-agent`. If necessary, start it using `sudo snap start amazon-ssm-agent`.
+- **SSM Agent:** Use an Ubuntu Server LTS AMI with SSM Agent preinstalled (26.04.1 in use; the agent was `enabled` and `active` at first connection). Verify its status using `sudo snap services amazon-ssm-agent`. If necessary, start it using `sudo snap start amazon-ssm-agent`.
 - **Instance permissions:** Create an EC2 IAM role with a trust policy allowing `ec2.amazonaws.com` to assume it. Attach `AmazonSSMManagedInstanceCore` and a separate least-privilege DynamoDB policy. Associate the role with the instance through its instance profile.
 - **Application permissions:** Restrict DynamoDB access to the Jira Lite table and required operations, such as `GetItem`, `PutItem`, `UpdateItem`, `DeleteItem`, and `Scan`. Confirm actual permissions after deployment, including the effect of AWS project-managed defaults.
 - **Human permissions:** Use the existing project administrator role. Confirm that it permits `ssm:StartSession` and related session-management actions. Do not create a separate IAM console administrator.
@@ -452,9 +454,9 @@ Items 1–3 were reported done in the owner's audit of 2026-11-01 (the audit say
 
 **Status:** Accepted on 2026-11-01 (owner). In use: WSL Ubuntu 24.04 and DynamoDB Local in Docker, through `scripts/run-local.sh`.
 
-**Decision:** Develop in **Ubuntu 24.04 under WSL**, with the project at `~/jira-lite`. A local run uses Flask's development server and **DynamoDB Local** in Docker, with `AWS_ENDPOINT_URL_DYNAMODB` pointing Boto3 at the container. Tests use `pytest`, Flask's test client, and stubbed or mocked DynamoDB access, with no AWS calls.
+**Decision:** Develop in **Ubuntu 24.04 under WSL**. A local run uses Gunicorn (2 workers, as on the server) and **DynamoDB Local** in Docker, with `JIRA_LITE_DYNAMODB_ENDPOINT` pointing the app at the container (`scripts/run-local.sh`). Tests use `pytest`, Flask's test client, and stubbed or mocked DynamoDB access, with no AWS calls.
 
-**Rationale:** The local OS and default Python version match the EC2 host, Bash scripts behave as they will on EC2, and Gunicorn can be tried locally (it doesn't run on native Windows). It also moves the project out of OneDrive, where syncing a `.git` folder is a known cause of conflicts and corruption, and avoids Windows line endings. The developer already knows Ubuntu (ADR-006).
+**Rationale:** The local OS is the same distribution family as the EC2 host (the host runs 26.04 with Python 3.14, the laptop 24.04 with Python 3.12; see ADR-006), Bash scripts behave as they will on EC2, and Gunicorn can be tried locally (it doesn't run on native Windows). It also moves the project out of OneDrive, where syncing a `.git` folder is a known cause of conflicts and corruption, and avoids Windows line endings. The developer already knows Ubuntu (ADR-006).
 
 **Alternatives considered:** **Native Windows** needs no new distribution but loses Gunicorn and Bash parity. A **real DynamoDB table for development** is the most faithful, but would require AWS access keys on the laptop, which this design otherwise avoids. **`moto` in server mode** needs no Docker but adds a package that imitates the service.
 
@@ -495,7 +497,7 @@ These remain open; the steps and discussion schedule are in `docs/project-plan.m
 | 2026-10-30 | Flask for backend application | Selected |
 | Before 2026-10-30 | DynamoDB as database (from SRS discussion) | Selected; rationale recorded 2026-10-30; comparison with alternatives not yet discussed |
 | 2026-10-30 | `t3.micro` EC2 (2 vCPUs, 1 GiB RAM) with Standard CPU credits | Selected; not yet deployed |
-| 2026-10-30 | Ubuntu Server 24.04 LTS over Amazon Linux 2023, primarily for familiarity and reduced setup/troubleshooting time | Selected; not yet deployed |
+| 2026-10-30 | Ubuntu Server LTS over Amazon Linux 2023, primarily for familiarity and reduced setup/troubleshooting time. Planned as 24.04; the instance runs 26.04.1 LTS and the owner kept it (2026-11-02) | Accepted; deployed |
 | 2026-10-30 | 16 GiB EBS `gp3` root volume over `gp2` (and a smaller 8 GiB volume) | Selected; not yet provisioned |
 | 2026-10-30 | AWS default VPC rather than custom VPC for the single EC2 host | Selected; security group and public IP details pending |
 | 2026-10-30 | AWS Systems Manager Session Manager for EC2 administration instead of SSH; IAM instance role and operator permissions | Selected; exact IAM policies and setup pending |
