@@ -28,7 +28,7 @@ These are latest-by dates, so move work earlier around busy days. The rough tota
 | Phase 3: Repository | Commit standards, the merge method, who pushes branches and opens PRs, test and lint tools, repo visibility, `docs/reference/`, `.gitignore`, `.gitattributes` (ADR-020) |
 | Phase 4: First working stack | boto3; `/health` design (ADR-018); systemd, the deploy script, the service user, and the server folders (ADR-016); table design, capacity, and the comparison with other databases (ADR-004); the AWS pieces: IAM policy, role, and instance profile, security group, default VPC, `t3.micro` and CPU credits, `gp3` storage, and Session Manager (ADR-005 to ADR-010) |
 | Phase 5: Task features | Board page, API, and length limits (ADR-017) |
-| Phase 6: Verify | Elastic IP (ADR-015) and the AC-06 failure test (ADR-018) |
+| Phase 6: Verify | The AC-06 failure test (ADR-018). The Elastic IP was decided against on 2026-11-05 (ADR-015) |
 | Phase 7: README and diagram | Diagram tool: Mermaid or draw.io |
 | Phase 8: Stretch goals | Each one before it starts |
 | Phase 9: Video | Each main choice and its alternative, in your own words (ADR-001, ADR-002, ADR-004 to ADR-006) |
@@ -134,7 +134,7 @@ First, PRs 1 and 2 get written and you review them. PR 1 also adds the exact tes
    Every later deploy is the last line with the commit you want. The script prints the previous commit, and rolling back is the same command with that commit. If it fails, it prints the last lines of the service log.
 8. **Check from your browser:** `http://<public-ip>/health`.
 
-Done when `/health` responds publicly and its check really reaches DynamoDB. A reboot keeps this IP address, but a stop/start changes it until an Elastic IP is added.
+Done when `/health` responds publicly and its check really reaches DynamoDB. A reboot keeps this IP address, but a stop/start changes it (no Elastic IP, ADR-015), so the instance stays running while the review is in progress.
 
 ## Phase 5: Task features
 
@@ -144,7 +144,7 @@ Done when the tests pass and the board works at the public link.
 
 ## Phase 6: Verify
 
-If we agree on an Elastic IP, allocate one and associate it with the instance first, since AC-05 stops and starts the instance.
+There is no Elastic IP (ADR-015), and AC-05 stops and starts the instance, which gives it a new public address. So do the stop/start part of AC-05 **first**, note the new address, and use that address for every other check, the README, the video, and the submission email. After that, do not stop the instance again.
 
 Mark a check as passed only after you've seen it pass. Save screenshots or terminal output for the video.
 
@@ -152,7 +152,7 @@ Mark a check as passed only after you've seen it pass. Save screenshots or termi
 | --- | --- |
 | AC-01 | Open the link on a phone with Wi-Fi off. |
 | AC-02 to AC-04 | Create, edit, and delete a task, reloading the page after each. |
-| AC-05 | Restart the Gunicorn service, reboot the instance, then stop and start it from the console. Tasks should remain and the link shouldn't change. |
+| AC-05 | Restart the Gunicorn service, reboot the instance, then stop and start it from the console. Tasks should remain after each. A stop/start changes the public IP, so open the board at the new address and record it. |
 | AC-06 | Confirm `/health` returns 200. Add the deny policy below to the `jira-lite-ec2` role, wait a minute, and confirm a 503. Remove it and confirm 200 again. |
 | AC-07 | Confirm port 80 is the only inbound rule. On the instance, `sudo ss -tlnp` should show Gunicorn on `127.0.0.1` only. Search the repository and its history for keys and passwords. |
 | AC-08 | In Billing, note the real charges, credit balance, and days remaining, and confirm the budget exists. Do this again just before submitting. |
@@ -207,4 +207,4 @@ Keep the app running until the reviewers say the review is finished.
 
 ## After the review
 
-Once the reviewers confirm the review is finished: terminate the instance, **release the Elastic IP** if you added one (it keeps billing until you do), and delete the table, role, policy, and security group. Check Billing over the next few days to confirm nothing is still running.
+Once the reviewers confirm the review is finished: terminate the instance and delete the table, role, policy, and security group. Check Billing over the next few days to confirm nothing is still running.
