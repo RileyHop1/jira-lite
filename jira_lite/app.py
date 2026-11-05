@@ -5,14 +5,26 @@ thin: they call ``jira_lite.db`` for anything that touches DynamoDB.
 """
 
 import logging
+from pathlib import Path
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 
 from jira_lite import db
 from jira_lite.validation import ValidationError, validate_task
 
-app = Flask(__name__)
+FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+
+# Flask serves the board page only so it works on a laptop, where there is no
+# Nginx. On the server, Nginx answers every page request itself and forwards
+# only /api/ and /health here, so these routes are never reached from outside.
+app = Flask(__name__, static_folder=str(FRONTEND_DIR), static_url_path="")
 logger = logging.getLogger(__name__)
+
+
+@app.get("/")
+def index():
+    """Serve the board page (local runs only; see the note above)."""
+    return send_from_directory(FRONTEND_DIR, "index.html")
 
 
 @app.errorhandler(ValidationError)

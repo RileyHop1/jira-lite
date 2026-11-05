@@ -1,0 +1,169 @@
+/* Layout and look of the board. No framework: plain CSS. */
+
+:root {
+  --border: #d0d4dc;
+  --muted: #5b6472;
+  --accent: #2563eb;
+  --danger: #b42318;
+  --background: #f5f6f8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--background);
+  color: #1b1f27;
+}
+
+header {
+  padding: 1rem 1.25rem;
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+main {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+/* The add/edit form. */
+#task-form {
+  display: grid;
+  gap: 0.4rem;
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+input,
+textarea,
+select {
+  width: 100%;
+  padding: 0.5rem;
+  font: inherit;
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+button {
+  padding: 0.45rem 0.9rem;
+  font: inherit;
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  background: #fff;
+  cursor: pointer;
+}
+
+button[type="submit"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* Hidden elements must stay hidden even where a rule above sets display. */
+[hidden] {
+  display: none !important;
+}
+
+#message {
+  margin: 1rem 0 0;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--danger);
+  border-radius: 0.35rem;
+  background: #fef3f2;
+  color: var(--danger);
+}
+
+/* Three columns on wide screens, one on narrow ones (phones). */
+#board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+@media (max-width: 700px) {
+  #board {
+    grid-template-columns: 1fr;
+  }
+}
+
+.column {
+  padding: 0.75rem;
+  background: #eceef2;
+  border-radius: 0.5rem;
+}
+
+.column h2 {
+  margin: 0 0 0.6rem;
+  font-size: 1rem;
+}
+
+.count {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.cards {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  padding: 0.7rem;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+}
+
+.card h3 {
+  margin: 0 0 0.3rem;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.card p {
+  margin: 0 0 0.5rem;
+  color: var(--muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.card-actions select {
+  width: auto;
+}
+
+.delete {
+  color: var(--danger);
+}
