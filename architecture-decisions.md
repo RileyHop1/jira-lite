@@ -22,7 +22,7 @@ Record *why* we chose each major component, the alternatives considered, and the
 - **Root disk:** 16 GiB Amazon EBS `gp3` general-purpose SSD (provisioned; owner-reported).
 - **VPC:** The AWS **default VPC**, with the EC2 host in a default public subnet. Internet routing and public IPv4 access are verified: `/health` answered from the public internet on 2026-11-02. The dedicated security group allows inbound port 80 only.
 - **Security group (design):** Dedicated group; inbound TCP 80 from the internet for Nginx; no inbound SSH/22 or Gunicorn/8000; outbound initially permitted; TCP 443 for inbound HTTPS only if the stretch goal is implemented.
-- **Public URL:** An Elastic IP with no domain (proposed; not yet discussed; ADR-015).
+- **Public URL:** The instance's auto-assigned public IP, no domain and no Elastic IP (decided 2026-11-05; ADR-015).
 - **Transport security:** Start with HTTP for the baseline; HTTPS/TLS is an SRS stretch goal, not a committed launch requirement.
 - **Scope priority:** Deliver and test mandatory EC2 app, persistence, and `/health` plus required submission materials before stretch goals. CI, basic monitoring, rate limiting, automated deployment, and HTTPS are stretch goals, in that order (ADR-013).
 - **Process management and deployment:** systemd runs Gunicorn, and the developer deploys with a short script through Session Manager (accepted and in use since the first deploy on 2026-11-02; ADR-016).
@@ -393,15 +393,17 @@ Items 1–3 were reported done in the owner's audit of 2026-11-01 (the audit say
 - [Track Free Tier usage](https://docs.aws.amazon.com/accounts/latest/reference/bcm-lite-free-tier-track.html)
 - [Activate advanced AWS features](https://docs.aws.amazon.com/accounts/latest/reference/activate-advanced-features.html)
 
-## ADR-015 — Use an Elastic IP and no domain for the public URL
+## ADR-015 — Use the auto-assigned public IP and no domain for the public URL
 
-**Status:** Proposed; to be decided by the owner before verification (Phase 6). An auto-assigned public IP is used until then.
+**Status:** Decided by the owner on 2026-11-05: **no Elastic IP.** The instance keeps its auto-assigned public IP, and the submitted link is `http://<public-ip>/`.
 
-**Decision:** Attach an **Elastic IP** to the instance and submit `http://<elastic-ip>/` as the live link. The baseline uses no domain or DNS.
+**Decision:** Use the instance's auto-assigned public IPv4 address and no domain or DNS. Leave the instance running while the review is in progress. The Elastic IP was proposed and considered, and the owner judged it not worth a recurring cost for a project this small.
 
-**Rationale:** The live link has to keep working until the review is finished. An auto-assigned public IPv4 address is released when an instance stops and changes when it starts again, while an Elastic IP stays the same, so a stop/start cannot break the submitted link.
+**Rationale:** An auto-assigned public IPv4 address stays the same through a reboot, but it is released when the instance stops and a new one is assigned when it starts. The submitted link therefore stays valid as long as the instance is not stopped. The owner accepted that risk in exchange for avoiding an extra billed resource and one more thing to release at teardown.
 
-**Alternatives considered:** An **auto-assigned public IP** costs the same per hour, but any stop/start changes the link. A **domain with Route 53** gives a better URL and makes HTTPS practical, but adds cost and DNS to the baseline.
+**Consequence:** Anything that stops the instance (a manual stop, or AWS stopping it for a host problem) changes the link. If that happens, the new address must be sent to the reviewers. The stop/start part of AC-05 still checks that tasks persist, but it can no longer check that the link is unchanged.
+
+**Alternatives considered:** An **Elastic IP** (rejected by the owner): a fixed address that survives stop/start and can be moved to another instance, at about the same hourly public-IPv4 charge, but it keeps billing while allocated even with no instance attached, so it must be released at teardown. A **domain with Route 53** gives a better URL and makes HTTPS practical, but adds cost and DNS to the baseline.
 
 **Tradeoffs:** A bare IP address over HTTP looks less polished, and browsers mark it as not secure. AWS charges for all public IPv4 addresses ($0.005 per hour in its 2024 announcement); confirm the current rate and that credits cover it. An Elastic IP keeps billing while it stays allocated, even with no instance attached, so it must be released at teardown.
 
@@ -506,7 +508,7 @@ These remain open; the steps and discussion schedule are in `docs/project-plan.m
 | 2026-10-30 | GitHub Actions for CI/CD with intended AWS OIDC + Systems Manager Run Command; manual/scripted deployment first | Selected design; stretch goal; not yet implemented |
 | 2026-10-30 | Prioritize required EC2 app, database, `/health`, and submission deliverables; everything else is a stretch goal | Selected project priority; revised 2026-10-30 |
 | 2026-11-01 | Dedicated AWS project on the Free plan, Builder ID sign-in, `us-east-2`; keep it unless a deployment blocker appears (replaces the 2026-10-30 advanced sign-up / `us-west-2` proposal) | Accepted and configured; deployment capabilities pending |
-| 2026-10-30 | Elastic IP and no domain for the public URL | Proposed; not yet discussed |
+| 2026-11-05 | Auto-assigned public IP and no domain for the public URL; the proposed Elastic IP was considered and rejected on cost | Decided by the owner |
 | 2026-10-30 | systemd for Gunicorn; manual deployment script; developer provisions AWS by hand | Proposed; not yet discussed |
 | 2026-10-30 | Plain static frontend from Nginx with a small JSON API | Proposed; not yet discussed |
 | 2026-10-30 | `/health` performs a real DynamoDB read with short timeouts | Proposed; not yet discussed |
