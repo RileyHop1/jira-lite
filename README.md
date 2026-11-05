@@ -2,8 +2,8 @@
 
 A small Kanban task board (To Do, In Progress, Done) running on a public Linux server in AWS. Anyone with the link can add, edit, move, and delete tasks, and they are saved in a database. The point of the project is the deployment: a Flask app behind Nginx and Gunicorn on an EC2 instance, with a real database, a health check that proves the database is reachable, and no stored credentials.
 
-- **Live app:** http://3.138.189.117/ (plain HTTP; the address is auto-assigned, see [Known limitations](#known-limitations))
-- **Health check:** http://3.138.189.117/health returns `{"database":"ok","status":"ok"}` when the app can reach DynamoDB, and a 503 when it cannot.
+- **Live app:** http://52.15.77.110/ (plain HTTP; the address is auto-assigned, see [Known limitations](#known-limitations))
+- **Health check:** http://52.15.77.110/health returns `{"database":"ok","status":"ok"}` when the app can reach DynamoDB, and a 503 when it cannot.
 
 ## Architecture
 
@@ -123,8 +123,8 @@ The service starts at boot and restarts itself after a crash. Troubleshooting hi
 | Board page, API, and static files served through Nginx | Verified 2026-11-04 |
 | Over-limit input refused by the live site (201-character title, 2,001-character description, 100 KB body) | Verified 2026-11-04 |
 | Tests (`pytest`) and lint (`ruff`) | Pass locally on Python 3.12; not run on the server's Python 3.14 |
-| Tasks survive a service restart, a reboot, and a stop/start | Not yet verified |
-| `/health` returns 503 when database access is denied | Not yet verified |
+| Tasks survive a service restart, a reboot, and a stop/start; Nginx and Gunicorn start by themselves after a reboot | Checked on 2026-11-05. The stop/start changed the public address, as expected without an Elastic IP |
+| `/health` returns 503 when database access is denied | Checked on 2026-11-05 with a temporary deny policy on the instance role, then removed; `/health` returned to 200 |
 | Only port 80 inbound and Gunicorn on loopback, checked on the instance | Not yet verified |
 
 ## Cost
