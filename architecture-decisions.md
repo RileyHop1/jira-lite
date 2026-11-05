@@ -160,6 +160,8 @@ Attach a dedicated **IAM role through an EC2 instance profile** to provide tempo
 
 Before deployment, verify how the new AWS project account's default application permissions interact with the intended instance role.
 
+**Implemented 2026-11-05:** the stock Ubuntu image runs the SSH service by default, and the port check showed `sshd` listening on port 22. The security group has no rule for it and the instance has no key pair, so it was unreachable, but the owner chose to remove the listener as well: `sudo systemctl disable --now ssh.socket ssh`. A re-check showed no port 22 in `ss -tlnp` and both units `disabled` and `inactive`. This was found by the AC-07 check, not planned. Not yet re-checked after a reboot.
+
 **Rationale:** Session Manager provides secure administrative access without opening an SSH port, configuring SSH keys, or storing long-lived AWS credentials.
 
 This reduces the publicly exposed network surface while providing experience with core AWS operational practices, including IAM roles, instance profiles, temporary credentials, and Systems Manager.

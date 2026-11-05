@@ -107,7 +107,7 @@ The service starts at boot and restarts itself after a crash. Troubleshooting hi
 
 ## Security
 
-- Only port 80 is open to the internet. There is no SSH, no key pair, and Gunicorn listens on loopback only.
+- Only port 80 is open to the internet. There is no inbound SSH rule, no key pair, and the SSH service itself is disabled on the instance; Gunicorn listens on loopback only. The only way in is Session Manager. (The Ubuntu image ships with the SSH service enabled. The port check on 2026-11-05 showed it listening, so I disabled it with `systemctl disable --now ssh.socket ssh` and re-checked that port 22 was gone.)
 - The app runs as a no-login `jira-lite` user. The code is owned by root, so the running app cannot change its own files.
 - AWS credentials come from the instance role and are temporary. The role can touch only this table, and only the five operations the app needs.
 - No secrets are in the repository. Keys, `.env` files, and virtual environments are ignored.
@@ -125,11 +125,20 @@ The service starts at boot and restarts itself after a crash. Troubleshooting hi
 | Tests (`pytest`) and lint (`ruff`) | Pass locally on Python 3.12; not run on the server's Python 3.14 |
 | Tasks survive a service restart, a reboot, and a stop/start; Nginx and Gunicorn start by themselves after a reboot | Checked on 2026-11-05. The stop/start changed the public address, as expected without an Elastic IP |
 | `/health` returns 503 when database access is denied | Checked on 2026-11-05 with a temporary deny policy on the instance role, then removed; `/health` returned to 200 |
-| Only port 80 inbound and Gunicorn on loopback, checked on the instance | Not yet verified |
+| Only port 80 inbound, Gunicorn on loopback, and no SSH listener, checked on the instance | Checked on 2026-11-05. The security group has one inbound rule (HTTP, port 80); `ss -tlnp` shows Nginx on port 80 and Gunicorn on `127.0.0.1:8000`. The SSH service had been running by default and was disabled; port 22 was gone on re-check. Not re-checked after a reboot |
 
 ## Cost
 
-Not yet recorded. Real charges, remaining credits, and the budget settings will be added after checking Billing.
+The account is on AWS's project-based Free plan, where credits cover the plan's costs and access ends when the credits run out or the free period ends. Billing as read on 2026-11-05, since the first deploy on 2026-11-02 (billing data can lag):
+
+| Item | Value |
+| --- | --- |
+| Charges this month | $0.22, covered by credits |
+| Credits remaining | $119.78 USD |
+| Days remaining on the plan | 177 (ends 2027-04-30) |
+| Month-end forecast | Not available yet |
+
+The instance is a `t3.micro` with Standard CPU credits, the table uses 5 read and 5 write provisioned units, and there is no load balancer, NAT gateway, or Elastic IP, so none of those charges apply. I have not broken the $0.22 down by service.
 
 ## Known limitations
 
@@ -140,6 +149,7 @@ Not yet recorded. Real charges, remaining credits, and the budget settings will 
 - **One instance, no backups, no monitoring.** If the instance fails, the app is down.
 - **The public address is auto-assigned.** It stays the same through a reboot but changes if the instance is stopped and started. I chose not to pay for an Elastic IP on a project this small, so the instance should be left running while the review is in progress.
 - **Local and server Python differ** (3.12 locally, 3.14 on the server).
+- **Outbound traffic is unrestricted.** The security group allows all outbound traffic (the default). The instance needs to reach DynamoDB and Systems Manager, and I did not narrow it further for a project this size.
 - **Resources were created by hand in the console**, so they are not reproducible from code.
 - **Last write wins** when two people edit the same task at once.
 
