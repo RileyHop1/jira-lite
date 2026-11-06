@@ -123,6 +123,7 @@ The service starts at boot and restarts itself after a crash. Troubleshooting hi
 | Board page, API, and static files served through Nginx | Verified 2026-11-04 |
 | Over-limit input refused by the live site (201-character title, 2,001-character description, 100 KB body) | Verified 2026-11-04 |
 | Tests (`pytest`) and lint (`ruff`) | Pass locally on Python 3.12; not run on the server's Python 3.14 |
+| Creating, editing, and deleting a task on the live board, each followed by a reload; opening the link from a phone on mobile data | Checked by the owner on 2026-11-05 |
 | Tasks survive a service restart, a reboot, and a stop/start; Nginx and Gunicorn start by themselves after a reboot | Checked on 2026-11-05. The stop/start changed the public address, as expected without an Elastic IP |
 | `/health` returns 503 when database access is denied | Checked on 2026-11-05 with a temporary deny policy on the instance role, then removed; `/health` returned to 200 |
 | Only port 80 inbound, Gunicorn on loopback, and no SSH listener, checked on the instance | Checked on 2026-11-05. The security group has one inbound rule (HTTP, port 80); `ss -tlnp` shows Nginx on port 80 and Gunicorn on `127.0.0.1:8000`. The SSH service had been running by default and was disabled; port 22 was gone on re-check. Not re-checked after a reboot |
@@ -137,6 +138,7 @@ The account is on AWS's project-based Free plan, where credits cover the plan's 
 | Credits remaining | $119.78 USD |
 | Days remaining on the plan | 177 (ends 2027-04-30) |
 | Month-end forecast | Not available yet |
+| Budgets | "My Monthly Cost Budget" ($15, status OK) and "My Zero-Spend Budget" ($1, flagged as exceeded because it alerts on any charge, and $0.22 has been billed, covered by credits) |
 
 The instance is a `t3.micro` with Standard CPU credits, the table uses 5 read and 5 write provisioned units, and there is no load balancer, NAT gateway, or Elastic IP, so none of those charges apply. I have not broken the $0.22 down by service.
 
